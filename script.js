@@ -1,6 +1,13 @@
 const lightbox = document.querySelector('.lightbox');
 const lightboxImage = lightbox.querySelector('img');
+const lightboxVideo = lightbox.querySelector('.lightbox-video');
+
 const closeLightbox = () => {
+  lightboxVideo.pause();
+  lightboxVideo.removeAttribute('src');
+  lightboxVideo.load();
+  lightboxVideo.hidden = true;
+  lightboxImage.hidden = false;
   lightbox.classList.remove('is-open');
   document.body.classList.remove('no-scroll');
 };
@@ -9,9 +16,55 @@ document.querySelectorAll('[data-lightbox]').forEach((button) => {
   button.addEventListener('click', () => {
     lightboxImage.src = button.dataset.lightbox;
     lightboxImage.alt = button.querySelector('img').alt;
+
+    if (button.dataset.video) {
+      lightboxImage.hidden = true;
+      lightboxVideo.hidden = false;
+      lightboxVideo.src = button.dataset.video;
+      lightboxVideo.load();
+      lightbox.classList.add('is-open');
+      document.body.classList.add('no-scroll');
+      lightboxVideo.play().catch((error) => {
+        if (error.name !== 'NotAllowedError') {
+          console.error('動画を再生できませんでした。プレーヤーの再生ボタンを押してください。', error);
+        }
+      });
+      return;
+    }
+
+    lightboxVideo.hidden = true;
+    lightboxImage.hidden = false;
     lightbox.classList.add('is-open');
     document.body.classList.add('no-scroll');
   });
+});
+
+const flyerPreviewObserver = new IntersectionObserver((entries, observer) => {
+  entries.forEach((entry) => {
+    if (!entry.isIntersecting) return;
+    const card = entry.target;
+    observer.unobserve(card);
+    window.setTimeout(() => {
+      const preview = card.querySelector('.flyer-preview-video');
+      preview.addEventListener('canplay', () => {
+        card.classList.add('is-video');
+        preview.play().catch((error) => {
+          if (error.name !== 'NotAllowedError') {
+            console.error('動画プレビューを再生できませんでした。', error);
+          }
+        });
+      }, { once: true });
+      preview.addEventListener('error', () => {
+        console.error(`動画プレビューを読み込めませんでした: ${card.dataset.video}`);
+      }, { once: true });
+      preview.src = card.dataset.video;
+      preview.load();
+    }, 5000);
+  });
+}, { threshold: 0.2 });
+
+document.querySelectorAll('.flyer-card[data-video]').forEach((card) => {
+  flyerPreviewObserver.observe(card);
 });
 
 document.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
@@ -99,4 +152,3 @@ if (heroCarousel) {
   render();
   restartAutoplay();
 }
-
